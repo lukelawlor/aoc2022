@@ -23,9 +23,9 @@ int main(int argc, char **argv)
 	// # of chars that make up a marker
 	int marker_len = std::atoi(argv[2]);
 
-	if (marker_len == 0)
+	if (marker_len <= 0)
 	{
-		std::cerr << "error: marker_len was 0.\n";
+		std::cerr << "error: marker_len was less than or equal to 0.\n";
 		return 1;
 	}
 
