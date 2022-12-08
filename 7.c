@@ -28,8 +28,15 @@
 	#define	PINF(...)	{(void)0;}
 #endif
 
+#define	PTAB(tabs, ...)		for (int i = 0; i < tabs; i++) \
+					putchar(' '); \
+				printf(__VA_ARGS__); \
+				putchar('\n') \
+
 // size of buffer used to read in strings
-#define	BUF_SIZ	200
+#define	BUF_SIZ		200
+
+#define	MAX_SMALL_SIZ	100000LL
 
 typedef struct File{
 	char *name;
@@ -48,6 +55,11 @@ void dir_add_dir(Directory *parent, Directory *child);
 void dir_add_file(Directory *parent, File *to_add);
 Directory *dir_find_dir(Directory *parent, const char *dir_name);
 File *dir_find_file(Directory *parent, const char *file_name);
+long long dir_get_size(Directory *parent);
+void dir_list(Directory *parent, int tabs);
+
+// calculates the size of directories with a size <= 100000, must be called after all directory sizes have been calculated
+long long dir_calc_small_size(Directory *parent);
 
 int main(void)
 {
@@ -108,7 +120,7 @@ int main(void)
 					}
 				}
 				buf[buf_len++] = '\0';
-				PINF("dir name = %s", buf);
+				PINF("dir name = %s; wdir = %s; 1up = %s;", buf, working_dir->name);
 
 				// check for special dir names
 				if (buf[0] == '/')
@@ -121,7 +133,14 @@ int main(void)
 				{
 					PINF("going back 1 dir");
 					if (working_dir->parent != NULL)
+					{
 						working_dir = working_dir->parent;
+						PINF("went back");
+					}
+					else
+					{
+						PINF("didn't went back");
+					}
 					break;
 				}
 
@@ -139,11 +158,13 @@ int main(void)
 					d->dirs = NULL;
 					d->files = NULL;
 					d->size = 0;
+					dir_add_dir(working_dir, d);
+					PINF("new dir added");
 				}
 
 				// add d to working dir, then enter it
-				dir_add_dir(working_dir, d);
 				working_dir = d;
+				PINF(">>> %s", d->name);
 				break;
 			}
 		case 'l':
@@ -280,11 +301,13 @@ int main(void)
 							d->files = NULL;
 							d->size = 0;
 							PINF("dir created");
-						}
 
-						// add d to the current working directory
-						dir_add_dir(working_dir, d);
-						PINF("added dir");
+							// add d to the current working directory
+							PINF("added dir");
+							dir_add_dir(working_dir, d);
+						}
+						else
+							PINF("dir already existed");
 					}
 					else if (c == '$')
 					{
@@ -312,6 +335,12 @@ int main(void)
 	}
 l_calc_size:
 	PINF("finished reading command line log :)");
+	PINF("listing root...");
+	dir_list(&root, 0);
+	PINF("calculating dir sizes...");
+	dir_get_size(&root);
+	PINF("calculating sum...");
+	printf("sum = %lld\n", dir_calc_small_size(&root));
 	return 0;
 }
 
@@ -325,6 +354,7 @@ void dir_add_dir(Directory *parent, Directory *child)
 			PERR("bad calloc when creating subdirs");
 			abort();
 		}
+		child->parent = parent;
 		parent->dirs[0] = child;
 		parent->dirs[1] = NULL;
 		return;
@@ -386,7 +416,10 @@ Directory *dir_find_dir(Directory *parent, const char *dir_name)
 	for (int i = 0; (d = parent->dirs[i]) != NULL; i++)
 	{
 		if (strncmp(d->name, dir_name, name_len) == 0)
+		{
+			PINF("dir %s found", d->name);
 			return d;
+		}
 	}
 	return NULL;
 }
@@ -403,4 +436,69 @@ File *dir_find_file(Directory *parent, const char *file_name)
 			return f;
 	}
 	return NULL;
+}
+
+long long dir_get_size(Directory *parent)
+{
+	PINF("calculating dir %s", parent->name);
+
+	long long size = 0;
+
+	// sum all file sizes
+	if (parent->files != NULL)
+	{
+		File *f;
+		for (int i = 0; (f = parent->files[i]) != NULL; i++)
+			size += f->size;
+	}
+	PINF("files summed");
+
+	// sum all dir sizes (recursion time!)
+	if (parent->dirs != NULL)
+	{
+		Directory *d;
+		for (int i = 0; (d = parent->dirs[i]) != NULL; i++)
+			size += dir_get_size(d);
+	}
+	PINF("dirs summed");
+
+	parent->size = size;
+	PINF("size of dir %s = %lld", parent->name, size);
+	return size;
+}
+
+// calculates the size of directories with a size <= 100000, must be called after all directory sizes have been calculated
+long long dir_calc_small_size(Directory *parent)
+{
+	long long size = 0;
+	if (parent->size <= MAX_SMALL_SIZ)
+		size += parent->size;
+
+	if (parent->dirs != NULL)
+	{
+		Directory *d;
+		for (int i = 0; (d = parent->dirs[i]) != NULL; i++)
+			size += dir_calc_small_size(d);
+	}
+	return size;
+}
+
+void dir_list(Directory *parent, int tabs)
+{
+	PTAB(tabs, parent->name);
+	tabs += 2;
+	if (parent->dirs != NULL)
+	{
+		Directory *d;
+		for (int i = 0; (d = parent->dirs[i]) != NULL; i++)
+			dir_list(d, tabs);
+	}
+	if (parent->files != NULL)
+	{
+		File *f;
+		for (int i = 0; (f = parent->files[i]) != NULL; i++)
+		{
+			PTAB(tabs, "%s", f->name);
+		}
+	}
 }
