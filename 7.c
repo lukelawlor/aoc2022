@@ -127,14 +127,15 @@ int main(void)
 	while (true)
 	{
 		// Detect command prompt
-		switch (c = getchar())
+		c = getchar();
+		if (c == '$')
 		{
-		case EOF:
-			PINF("found end of file");
-			goto l_reading_finished;
-		case '$':
 			move_past(" ");
 			PINF("found command prompt");
+		}
+		else if (c == EOF)
+		{
+			PINF("found end of file");
 			break;
 		}
 
@@ -151,13 +152,20 @@ int main(void)
 			break;
 		}
 	}
-l_reading_finished:
-	PINF("listing root...");
-	dir_list(&root, 0);
+
+	// Calculate the sizes of all directories
 	PINF("calculating dir sizes...");
 	dir_get_size(&root);
+	
+	// List root
+	PINF("listing root...");
+	dir_list(&root, 0);
+
+	// Part 1 calculation
 	PINF("calculating sum...");
-	printf("sum = %lld\n", dir_calc_small_size(&root));
+	printf("part 1: sum = %lld\n", dir_calc_small_size(&root));
+
+	// Part 2 calculation
 	return 0;
 }
 
