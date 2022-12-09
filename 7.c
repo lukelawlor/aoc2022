@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <string.h>
+#include <limits.h>
 
 // Error message printing
 #define	ERR_MSG_START	"error: "
@@ -46,6 +47,10 @@
 #define	BUF_SIZ		200
 
 #define	MAX_SMALL_SIZ	100000LL
+
+#define	DISK_SPACE	70000000LL
+
+#define	MIN_FREE_SPACE	30000000LL
 
 typedef struct{
 	char *name;
@@ -90,6 +95,9 @@ void dir_list(Directory *parent, int tabs);
 
 // Calculates the size of directories with a size <= 100000, must be called after all directory sizes have been calculated
 long long dir_calc_small_size(Directory *parent);
+
+// Returns the size of the smallest directory with a size >= min
+long long dir_get_min_size(Directory *parent, long long min, long long current_min);
 
 // Reads all characters from stdin into a buffer, starting from the len value in the buffer, and stopping once the stop char is found, calls abort() on errors
 void buf_read(Buf *buf, char stop);
@@ -166,6 +174,12 @@ int main(void)
 	printf("part 1: sum = %lld\n", dir_calc_small_size(&root));
 
 	// Part 2 calculation
+	PINF("calculating whatever the part 2 thingy is...");
+
+	long long free_space = DISK_SPACE - root.size;
+	long long min_size = MIN_FREE_SPACE - free_space;
+
+	printf("part 2:\nfree space = %lld\nspace to free = %lld\nsize of smallest deletable dir = %lld\n", free_space, min_size, dir_get_min_size(&root, min_size, LLONG_MAX));
 	return 0;
 }
 
@@ -351,6 +365,23 @@ long long dir_calc_small_size(Directory *parent)
 			size += dir_calc_small_size(d);
 	}
 	return size;
+}
+
+// Returns the size of the smallest directory with a size >= min
+long long dir_get_min_size(Directory *parent, long long min, long long current_min)
+{
+	if (parent->size >= min)
+		if (parent->size < current_min)
+			current_min = parent->size;
+
+	if (parent->dirs != NULL)
+	{
+		Directory *d;
+		for (int i = 0; (d = parent->dirs[i]) != NULL; i++)
+			current_min = dir_get_min_size(d, min, current_min);
+	}
+	
+	return current_min;
 }
 
 void dir_list(Directory *parent, int tabs)
